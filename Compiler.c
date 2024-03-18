@@ -84,6 +84,7 @@ static int digit()
 		ERROR("Expected digit\n");
 		exit(EXIT_FAILURE);
 	}
+	
 	reg = next_register();
 	CodeGen(LOADI, reg, to_digit(token), EMPTY_FIELD);
 	next_token();
@@ -93,76 +94,198 @@ static int digit()
 static int variable()
 {
 	/* YOUR CODE GOES HERE */
+	
+	int reg;
+
+	if (!is_identifier(token)) {
+		ERROR("Expected identifier\n");
+		exit(EXIT_FAILURE);
+	}
+
+	reg = next_register();
+	CodeGen(LOAD, reg, token, EMPTY_FIELD);	
+	next_token();
+	return reg;
 }
 
 static int expr()
 {
-	int reg, left_reg, right_reg;
+	 int reg, left_reg, right_reg;
 
-	switch (token) {
-	case '+':
-		next_token();
-		left_reg = expr();
-		right_reg = expr();
-		reg = next_register();
-		CodeGen(ADD, reg, left_reg, right_reg);
-		return reg;
-		/* YOUR CODE GOES HERE */
-	case '0':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-		return digit();
-	default:
-		ERROR("Symbol %c unknown\n", token);
-		exit(EXIT_FAILURE);
-	}
+    switch (token) {
+        case '+':
+            next_token();
+            left_reg = expr();
+            right_reg = expr();
+            reg = next_register();
+            CodeGen(ADD, reg, left_reg, right_reg);
+            return reg;
+        case '-':
+            next_token();
+            left_reg = expr();
+            right_reg = expr();
+            reg = next_register();
+            CodeGen(SUB, reg, left_reg, right_reg);
+            return reg;
+        case '*':
+            next_token();
+            left_reg = expr();
+            right_reg = expr();
+            reg = next_register();
+            CodeGen(MUL, reg, left_reg, right_reg);
+            return reg;
+        case '&':
+            next_token();
+            left_reg = expr();
+            right_reg = expr();
+            reg = next_register();
+            CodeGen(AND, reg, left_reg, right_reg);
+            return reg;
+        case '|':
+            next_token();
+            left_reg = expr();
+            right_reg = expr();
+            reg = next_register();
+            CodeGen(OR, reg, left_reg, right_reg);
+            return reg;
+        case 'a':
+        case 'b':
+        case 'c':
+        case 'd':
+        case 'e':
+        case 'f':
+            return variable();
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            return digit();
+		case '%':
+        next_token();
+        if (is_identifier(token)) {
+            reg = next_register();
+            CodeGen(LOADI, reg, token, EMPTY_FIELD);  
+            next_token();
+            return reg;
+        } else {
+            ERROR("Expected identifier after '%'\n");
+            exit(EXIT_FAILURE);
+        }
+        default:
+            ERROR("Symbol %c unknown\n", token);
+            exit(EXIT_FAILURE);
+    }
+      
 }
 
 static void assign()
 {
-	/* YOUR CODE GOES HERE */
+	char variable;
+     if (!is_identifier(token)) {
+        ERROR("Assign error: Unknown identifier %c\n", token);
+        exit(EXIT_FAILURE);
+    }
+    variable = token;  
+    printf("\nVariable: %c\n", variable);
+    
+    next_token();  
+    if (token != '=') {
+        ERROR("Assign error: Expected '=' after identifier %c\n", variable);
+        exit(EXIT_FAILURE);
+    }
+    
+    next_token();  
+
+    int value = expr();  
+
+    CodeGen(STORE, variable, value, EMPTY_FIELD);  
+    printf("Stored value %d in variable %c\n", value, variable);
+	
 }
 
 static void read()
 {
-	/* YOUR CODE GOES HERE */
+if (token == '?') {
+		next_token();
+		CodeGen(READ, token, EMPTY_FIELD, EMPTY_FIELD);
+	}
+
 }
 
 static void print()
 {
-	/* YOUR CODE GOES HERE */
+	if (token == '%') {
+        next_token();  
+        
+        if (is_identifier(token)) {
+            CodeGen(WRITE, token, EMPTY_FIELD, EMPTY_FIELD); 
+            next_token(); 
+        } else {
+            ERROR("Error: Expected identifier after '%%', but found %c\n", token);
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        ERROR("Error: Expected '%%' to start print statement, but found %c\n", token);
+        exit(EXIT_FAILURE);
+    }
+	
 }
 
 static void stmt()
 {
 	/* YOUR CODE GOES HERE */
+		switch (token) {
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'e':
+    case 'f':
+        assign();
+        break;
+    case '?':
+        read();
+		next_token();
+        break;
+    case '%':
+        print();
+        break;
+    }
 }
 
 static void morestmts()
 {
 	/* YOUR CODE GOES HERE */
+	if (token == ';') {
+		next_token();
+		stmtlist();
+	}
 }
+
 
 static void stmtlist()
 {
 	/* YOUR CODE GOES HERE */
+		stmt();
+    morestmts();
+
 }
 
 static void program()
 {
 	/* YOUR CODE GOES HERE */
-	expr();
-	if (token != '.') {
+	stmtlist();
+	if (token != '!') {
 		ERROR("Program error.  Current input symbol is %c\n", token);
 		exit(EXIT_FAILURE);
 	};
+
 }
 
 /*************************************************************************/
@@ -199,6 +322,7 @@ static inline void next_token()
 	}
 	if (*buffer == '.')
 		printf(".\n");
+	
 }
 
 static inline int next_register()
@@ -223,7 +347,7 @@ static inline int to_digit(char c)
 
 static inline int is_identifier(char c)
 {
-	if (c >= 'a' && c <= 'e')
+	if (c >= 'a' && c <= 'f')
 		return 1;
 	return 0;
 }
@@ -292,3 +416,4 @@ int main(int argc, char *argv[])
 	fclose(outfile);
 	return EXIT_SUCCESS;
 }
+
